@@ -1,21 +1,21 @@
-import React from "react";
+import React, {useEffect } from 'react';
 import jsnes from "@holmes89/jsnes"
 
-const Nes = ({path, canvas_id}) => {
+const Nes = ({path}) => {
 
     const SCREEN_WIDTH = 256;
     const SCREEN_HEIGHT = 240;
     const FRAMEBUFFER_SIZE = SCREEN_WIDTH*SCREEN_HEIGHT;
 
-    const canvas_ctx, image;
-    const framebuffer_u8, framebuffer_u32;
+    let canvas_ctx, image;
+    let framebuffer_u8, framebuffer_u32;
 
     const AUDIO_BUFFERING = 512;
     const SAMPLE_COUNT = 4*1024;
     const SAMPLE_MASK = SAMPLE_COUNT - 1;
     const audio_samples_L = new Float32Array(SAMPLE_COUNT);
     const audio_samples_R = new Float32Array(SAMPLE_COUNT);
-    const audio_write_cursor = 0, audio_read_cursor = 0;
+    let audio_write_cursor = 0, audio_read_cursor = 0;
 
     const nes = new jsnes.NES({
         onFrame: (framebuffer_24) => {
@@ -28,18 +28,18 @@ const Nes = ({path, canvas_id}) => {
         },
     });
 
-    onAnimationFrame = () =>{
+    const onAnimationFrame = () =>{
         window.requestAnimationFrame(onAnimationFrame);
         
         image.data.set(framebuffer_u8);
         canvas_ctx.putImageData(image, 0, 0);
     }
 
-    audio_remain = () =>{
+    const audio_remain = () =>{
         return (audio_write_cursor - audio_read_cursor) & SAMPLE_MASK;
     }
 
-    audio_callback = (event) => {
+    const audio_callback = (event) => {
         var dst = event.outputBuffer;
         var len = dst.length;
         
@@ -57,7 +57,7 @@ const Nes = ({path, canvas_id}) => {
         audio_read_cursor = (audio_read_cursor + len) & SAMPLE_MASK;
     }
     
-    keyboard = (callback, event) =>{
+    const keyboard = (callback, event) =>{
         var player = 1;
         switch(event.keyCode){
             case 38: // UP
@@ -74,7 +74,7 @@ const Nes = ({path, canvas_id}) => {
             case 83: // 's' - qwerty, azerty
             case 79: // 'o' - dvorak
                 callback(player, jsnes.Controller.BUTTON_B); break;
-            case 9: // Tab
+            case 16: // select
                 callback(player, jsnes.Controller.BUTTON_SELECT); break;
             case 13: // Return
                 callback(player, jsnes.Controller.BUTTON_START); break;
@@ -82,7 +82,7 @@ const Nes = ({path, canvas_id}) => {
         }
     }
 
-    nes_init = (canvas_id) =>{
+    const nes_init = (canvas_id) =>{
         var canvas = document.getElementById(canvas_id);
         canvas_ctx = canvas.getContext("2d");
         image = canvas_ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -102,35 +102,36 @@ const Nes = ({path, canvas_id}) => {
         script_processor.connect(audio_ctx.destination);
     }
 
-    nes_boot = (rom_data) => {
+    const nes_boot = (rom_data) => {
         nes.loadROM(rom_data);
         window.requestAnimationFrame(onAnimationFrame);
     }
-
-    nes_load_data = (canvas_id, rom_data) =>{
-        nes_init(canvas_id);
-        nes_boot(rom_data);
-    }
-
   
-    nes_init(canvas_id);
+    useEffect(() => {
     
-    var req = new XMLHttpRequest();
-    req.open("GET", path);
-    req.overrideMimeType("text/plain; charset=x-user-defined");
-    req.onerror = () => console.log(`Error loading ${path}: ${req.statusText}`);
-    
-    req.onload = function() {
-        if (this.status === 200) {
-        nes_boot(this.responseText);
-        } else if (this.status === 0) {
-            // Aborted, so ignore error
-        } else {
-            req.onerror();
-        }
-    };
-    
-    req.send();
+        var req = new XMLHttpRequest();
+        req.open("GET", path);
+        req.overrideMimeType("text/plain; charset=x-user-defined");
+        req.onerror = () => console.log(`Error loading ${path}: ${req.statusText}`);
+        
+        req.onload = function() {
+            if (this.status === 200) {
+            nes_boot(this.responseText);
+            nes_init("game-canvas");
+
+            document.addEventListener('keydown', (event) => {keyboard(nes.buttonDown, event)});
+            document.addEventListener('keyup', (event) => {keyboard(nes.buttonUp, event)});
+            } else if (this.status === 0) {
+                // Aborted, so ignore error
+            } else {
+                req.onerror();
+            }
+        };
+        
+        req.send();
+    })
+   
+    return <canvas id="game-canvas"  height={`${SCREEN_HEIGHT*3}px`} style={{width: `${SCREEN_WIDTH*3}px`}}/>
 }
 
 export default Nes;
