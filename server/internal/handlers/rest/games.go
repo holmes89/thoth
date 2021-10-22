@@ -22,8 +22,7 @@ func MakeGameHandler(mr *mux.Router, svc GameService) {
 
 	r.HandleFunc("", h.FindAll).Methods("GET", "OPTIONS")
 	r.HandleFunc("/", h.FindAll).Methods("GET", "OPTIONS")
-	r.HandleFunc("", h.FindByID).Methods("GET", "OPTIONS")
-	r.HandleFunc("", h.FindByID).Methods("GET", "OPTIONS")
+	r.HandleFunc("/{id}", h.FindByID).Methods("GET", "OPTIONS")
 }
 
 func (h *gameHandler) FindAll(w http.ResponseWriter, r *http.Request) {
@@ -38,8 +37,21 @@ func (h *gameHandler) FindAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *gameHandler) FindByID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	ctx := r.Context()
+	id := vars["id"]
+
+	resp, err := h.svc.FindGame(ctx, id)
+	if err != nil {
+		log.Error().Err(err).Str("id", id).Msg("unable to find game")
+		http.Error(w, "unable to find game", http.StatusInternalServerError)
+		return
+	}
+	EncodeResponse(w, resp, err)
 }
 
 type GameService interface {
 	ListGames(ctx context.Context) ([]internal.Game, error)
+	FindGame(context.Context, string) (internal.Game, error)
 }

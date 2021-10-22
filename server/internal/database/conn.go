@@ -17,7 +17,7 @@ var (
 
 type conn struct {
 	db     *dynamodb.Client
-	bucket *s3.Client
+	bucket *s3.PresignClient
 }
 
 func NewConnection() *conn {
@@ -29,7 +29,8 @@ func NewConnection() *conn {
 
 	// Create DynamoDB client
 	svc := dynamodb.NewFromConfig(cfg)
-	bucket := s3.NewFromConfig(cfg)
+	bucketClient := s3.NewFromConfig(cfg)
+	bucket := s3.NewPresignClient(bucketClient)
 
 	return &conn{
 		db:     svc,
